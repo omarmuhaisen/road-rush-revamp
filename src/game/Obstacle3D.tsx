@@ -259,8 +259,8 @@ const SnowmanObstacle = () => (
       <cylinderGeometry args={[0.18, 0.18, 0.3, 10]} />
       <meshStandardMaterial color="#0f172a" />
     </mesh>
-    <mesh position={[0, 0.95, -0.28]}>
-      <coneGeometry args={[0.05, 0.2, 6]} rotation={[Math.PI / 2, 0, 0]} />
+    <mesh position={[0, 1.4, -0.22]} rotation={[Math.PI / 2, 0, 0]}>
+      <coneGeometry args={[0.05, 0.2, 6]} />
       <meshStandardMaterial color="#f97316" />
     </mesh>
   </group>
