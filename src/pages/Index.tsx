@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { PixelGame } from '@/game/PixelGame';
+import { Game3D } from '@/game/Game3D';
 import { AdModal } from '@/components/AdModal';
 import { CarPreview } from '@/components/CarPreview';
+import { PauseMenu } from '@/components/PauseMenu';
 import { Splash } from './Splash';
 import { Settings } from './Settings';
 import { Shop } from './Shop';
@@ -58,11 +59,12 @@ const Index = () => {
   const [score, setScore] = useState(0);
   const [runCoins, setRunCoins] = useState(0);
   const [lives, setLives] = useState(MAX_LIVES);
-  const [progress, setProgress] = useState(0); // 0..1 distance through stage
+  const [progress, setProgress] = useState(0);
   const [adMode, setAdMode] = useState<AdMode>(null);
   const [adReward, setAdReward] = useState(0);
   const [usedContinue, setUsedContinue] = useState(false);
   const [adRotation, setAdRotation] = useState(0);
+  const [paused, setPaused] = useState(false);
   const [sound, setSound] = useState(true);
   const [music, setMusic] = useState(true);
 
@@ -81,6 +83,7 @@ const Index = () => {
     setLives(MAX_LIVES);
     setProgress(0);
     setUsedContinue(false);
+    setPaused(false);
     setScreen('PLAYING');
   }, []);
 
@@ -88,21 +91,18 @@ const Index = () => {
   const handleScoreTick = useCallback((d: number) => setScore((s) => s + d), []);
   const handleProgress = useCallback((p: number) => setProgress(p), []);
 
-  // Crash: lose a life. If still alive, brief invuln and continue. Else game over.
   const handleCrash = useCallback(() => {
     setLives((l) => {
       const next = l - 1;
-      if (next <= 0) {
-        setScreen('GAME_OVER');
-      }
+      if (next <= 0) setScreen('GAME_OVER');
       return Math.max(0, next);
     });
   }, []);
 
-  const handleFinish = useCallback(() => {
-    setScreen('STAGE_CLEAR');
-  }, []);
+  const handleFinish = useCallback(() => setScreen('STAGE_CLEAR'), []);
 
+  // Save coins/highscore/progress. cleared=true => unlock next stage.
+  // Coins are ALWAYS saved (even when exiting mid-run).
   const finalizeRun = useCallback(
     (cleared: boolean, bonusCoins = 0) => {
       setSave((s) => {
@@ -111,7 +111,6 @@ const Index = () => {
         const progressMap = { ...s.progress };
         if (cleared) {
           progressMap[theme.id] = Math.max(progressMap[theme.id] ?? 0, stageIndex);
-          // unlock next theme automatically when finishing 100
           if (stageIndex >= STAGES_PER_THEME) {
             const tIdx = THEMES.findIndex((t) => t.id === theme.id);
             const nextTheme = THEMES[tIdx + 1];
@@ -122,6 +121,8 @@ const Index = () => {
         }
         return { ...s, coins: totalCoins, highScore: newHigh, progress: progressMap };
       });
+      // reset run-coins so they aren't double-counted on next finalize
+      setRunCoins(0);
     },
     [runCoins, score, theme.id, stageIndex]
   );
@@ -155,7 +156,7 @@ const Index = () => {
     }
   };
 
-  // Auto-open stage bonus ad on clear
+  // STAGE_CLEAR -> auto-show bonus ad
   useEffect(() => {
     if (screen === 'STAGE_CLEAR' && adMode === null) {
       const id = setTimeout(() => {
@@ -169,7 +170,6 @@ const Index = () => {
   const goNextStage = () => {
     const next = Math.min(STAGES_PER_THEME, stageIndex + 1);
     if (next === stageIndex) {
-      // last stage of theme
       setScreen('MENU');
     } else {
       startStage(theme, next);
@@ -181,6 +181,13 @@ const Index = () => {
     setAdMode('SHOP_PACK');
   };
 
+  // Pause logic: pauses the 3D loop and saves coins-on-exit
+  const handleExitConfirmed = () => {
+    finalizeRun(false);
+    setPaused(false);
+    setScreen('MENU');
+  };
+
   if (screen === 'SPLASH') {
     return <Splash onDone={() => setScreen('MENU')} />;
   }
@@ -190,121 +197,162 @@ const Index = () => {
       className="relative w-full h-screen overflow-hidden bg-black text-white select-none"
       style={{ fontFamily: '"Press Start 2P", ui-monospace, monospace' }}
     >
-      <h1 className="sr-only">Turbo Dash Pixel - Pixel Art Top-Down Racer</h1>
+      <h1 className="sr-only">Turbo Dash 3D — Endless Racer</h1>
 
-      {/* Game viewport */}
-      <div
-        className="absolute inset-0 flex items-center justify-center"
-        style={{ background: theme.sky }}
-      >
-        <div className="relative h-full" style={{ aspectRatio: '240 / 360', maxWidth: '100%' }}>
-          <PixelGame
-            car={activeCar}
-            theme={theme}
-            stage={stage}
-            isPlaying={screen === 'PLAYING'}
-            onCoin={handleCoin}
-            onCrash={handleCrash}
-            onScoreTick={handleScoreTick}
-            onProgress={handleProgress}
-            onFinish={handleFinish}
-          />
+      {/* 3D viewport (full screen) */}
+      <div className="absolute inset-0">
+        <Game3D
+          car={activeCar}
+          themeId={theme.id}
+          stage={stage}
+          isPlaying={screen === 'PLAYING'}
+          isPaused={paused}
+          onCoin={handleCoin}
+          onCrash={handleCrash}
+          onScoreTick={handleScoreTick}
+          onProgress={handleProgress}
+          onFinish={handleFinish}
+        />
 
-          {/* HUD */}
-          {screen === 'PLAYING' && (
-            <>
-              <div className="absolute top-2 left-2 right-2 flex justify-between items-start text-[10px] pointer-events-none gap-2">
-                {/* Coins (top-right, prominent) */}
-                <div className="bg-black/80 border-2 border-amber-300 px-2 py-1 order-2 ml-auto text-right">
-                  <div className="text-amber-300 text-[12px]">💰 {formatNum(save.coins + runCoins)}</div>
-                  <div className="text-amber-200/80 text-[8px]">+{runCoins} RUN</div>
-                </div>
-                {/* Score + Stage */}
-                <div className="bg-black/80 border-2 border-cyan-300 px-2 py-1 order-1">
-                  <div className="text-cyan-300">{formatNum(score)}</div>
-                  <div className="text-fuchsia-300 text-[8px]">
-                    {theme.name} · {stageIndex}
-                  </div>
+        {/* HUD */}
+        {screen === 'PLAYING' && (
+          <>
+            {/* top row */}
+            <div className="absolute top-3 left-3 right-3 flex justify-between items-start text-[10px] gap-2 pointer-events-none">
+              <div className="bg-black/70 border-2 border-cyan-300 px-3 py-2 rounded">
+                <div className="text-cyan-300 text-[14px] font-black">{formatNum(score)}</div>
+                <div className="text-fuchsia-300 text-[8px] mt-1">
+                  {theme.name} · STAGE {stageIndex}
                 </div>
               </div>
+              <div className="bg-black/70 border-2 border-amber-300 px-3 py-2 rounded text-right">
+                <div className="text-amber-300 text-[14px] font-black">💰 {formatNum(save.coins + runCoins)}</div>
+                <div className="text-amber-200/80 text-[8px] mt-1">+{runCoins} RUN</div>
+              </div>
+            </div>
 
-              {/* Lives */}
-              <div className="absolute top-12 left-2 text-[14px] pointer-events-none">
+            {/* lives + progress under HUD */}
+            <div className="absolute top-[72px] left-3 right-3 flex items-center gap-3 pointer-events-none">
+              <div className="text-[16px]">
                 {Array.from({ length: MAX_LIVES }).map((_, i) => (
-                  <span key={i} className={i < lives ? '' : 'opacity-20 grayscale'}>
-                    ❤
-                  </span>
+                  <span key={i} className={i < lives ? '' : 'opacity-20 grayscale'}>❤</span>
                 ))}
               </div>
-
-              {/* Distance progress bar */}
-              <div className="absolute top-12 right-2 left-20 h-2 bg-black/60 border border-white/30 pointer-events-none">
+              <div className="flex-1 h-3 bg-black/60 border-2 border-white/30 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-emerald-400 via-amber-300 to-fuchsia-500"
-                  style={{ width: `${Math.min(100, progress * 100)}%` }}
+                  className="h-full transition-[width] duration-100"
+                  style={{
+                    width: `${Math.min(100, progress * 100)}%`,
+                    background: 'linear-gradient(90deg, #22d3ee, #fde047, #ec4899)',
+                  }}
                 />
               </div>
+              <span className="text-[9px] text-white/70 w-9 text-right">{Math.floor(progress * 100)}%</span>
+            </div>
 
-              {/* hint */}
-              <div className="absolute bottom-2 left-0 right-0 text-center text-[8px] text-white/60 pointer-events-none">
-                ✋ DRAG ANYWHERE TO STEER
-              </div>
-            </>
-          )}
-        </div>
+            {/* PAUSE button */}
+            <button
+              onClick={() => setPaused(true)}
+              className="absolute bottom-4 right-4 z-20 bg-black/70 border-2 border-white/40 text-white text-[12px] w-12 h-12 rounded-full font-black active:translate-y-[2px]"
+              aria-label="Pause"
+            >
+              ⏸
+            </button>
+
+            {/* hint */}
+            <div className="absolute bottom-4 left-4 right-20 text-[9px] text-white/60 pointer-events-none">
+              ✋ DRAG TO STEER
+            </div>
+
+            {/* PAUSE MENU */}
+            <PauseMenu
+              open={paused}
+              onResume={() => setPaused(false)}
+              onExit={handleExitConfirmed}
+            />
+          </>
+        )}
       </div>
 
       {/* MAIN MENU */}
       {screen === 'MENU' && (
-        <div className="absolute inset-0 bg-black/85 backdrop-blur-sm flex flex-col items-center justify-center p-6">
-          <div className="text-center mb-6">
+        <div
+          className="absolute inset-0 flex flex-col items-center justify-center p-6 overflow-hidden"
+          style={{
+            background:
+              'radial-gradient(circle at 50% 0%, hsl(263 75% 25%) 0%, hsl(240 60% 8%) 60%, #000 100%)',
+          }}
+        >
+          {/* animated grid floor */}
+          <div
+            aria-hidden
+            className="absolute inset-x-0 bottom-0 h-1/2 opacity-30 pointer-events-none"
+            style={{
+              background:
+                'repeating-linear-gradient(0deg, transparent 0 19px, rgba(236,72,153,0.6) 19px 20px), repeating-linear-gradient(90deg, transparent 0 19px, rgba(34,211,238,0.5) 19px 20px)',
+              transform: 'perspective(400px) rotateX(60deg)',
+              transformOrigin: 'bottom',
+            }}
+          />
+          <div
+            aria-hidden
+            className="absolute top-[15%] w-72 h-72 rounded-full blur-3xl pointer-events-none"
+            style={{ background: 'radial-gradient(circle, #f97316 0%, transparent 70%)', opacity: 0.5 }}
+          />
+
+          <div className="relative text-center mb-8">
             <h2
-              className="text-3xl text-amber-300 mb-2 leading-tight"
-              style={{ textShadow: '4px 4px 0 #000' }}
+              className="text-5xl leading-tight tracking-tight"
+              style={{
+                background: 'linear-gradient(180deg, #fde047 0%, #f97316 70%, #dc2626 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                filter: 'drop-shadow(4px 4px 0 #000)',
+              }}
             >
               TURBO
               <br />
               DASH
             </h2>
-            <p className="text-[10px] text-fuchsia-300 tracking-widest">PIXEL EDITION</p>
+            <p className="mt-2 text-[10px] text-cyan-300 tracking-[0.4em]">3D · EDITION</p>
           </div>
 
-          <div className="flex flex-col gap-2 w-60">
+          <div className="relative flex flex-col gap-2 w-64">
             <button
               onClick={() =>
                 startStage(theme, Math.min(STAGES_PER_THEME, Math.max(1, save.progress[theme.id] || 1)))
               }
-              className="bg-emerald-500 text-black border-4 border-black px-4 py-3 text-xs font-black active:translate-y-[2px] hover:brightness-110"
+              className="bg-gradient-to-b from-emerald-400 to-emerald-600 text-black border-4 border-black px-4 py-4 text-sm font-black active:translate-y-[2px] hover:brightness-110 shadow-[0_6px_0_#000]"
             >
               ▶ START
             </button>
             <button
               onClick={() => setScreen('WORLDS')}
-              className="bg-cyan-400 text-black border-4 border-black px-4 py-2 text-[10px] font-black active:translate-y-[2px]"
+              className="bg-gradient-to-b from-cyan-300 to-cyan-500 text-black border-4 border-black px-4 py-3 text-[11px] font-black active:translate-y-[2px] shadow-[0_4px_0_#000]"
             >
               🌍 WORLDS
             </button>
             <button
               onClick={() => setScreen('GARAGE')}
-              className="bg-fuchsia-500 text-white border-4 border-black px-4 py-2 text-[10px] font-black active:translate-y-[2px]"
+              className="bg-gradient-to-b from-fuchsia-400 to-fuchsia-600 text-white border-4 border-black px-4 py-3 text-[11px] font-black active:translate-y-[2px] shadow-[0_4px_0_#000]"
             >
               🚗 GARAGE
             </button>
             <button
               onClick={() => setScreen('SHOP')}
-              className="bg-amber-400 text-black border-4 border-black px-4 py-2 text-[10px] font-black active:translate-y-[2px]"
+              className="bg-gradient-to-b from-amber-300 to-amber-500 text-black border-4 border-black px-4 py-3 text-[11px] font-black active:translate-y-[2px] shadow-[0_4px_0_#000]"
             >
               🛒 SHOP
             </button>
             <button
               onClick={() => setScreen('SETTINGS')}
-              className="bg-neutral-700 text-white border-4 border-black px-4 py-2 text-[10px] font-black active:translate-y-[2px]"
+              className="bg-gradient-to-b from-neutral-600 to-neutral-800 text-white border-4 border-black px-4 py-3 text-[11px] font-black active:translate-y-[2px] shadow-[0_4px_0_#000]"
             >
               ⚙ SETTINGS
             </button>
           </div>
 
-          <div className="mt-6 flex gap-4 text-[10px]">
+          <div className="relative mt-6 flex gap-4 text-[11px]">
             <span className="text-amber-300">💰 {formatNum(save.coins)}</span>
             <span className="text-cyan-300">★ {formatNum(save.highScore)}</span>
           </div>
@@ -357,13 +405,13 @@ const Index = () => {
         </div>
       )}
 
-      {/* STAGES list — free navigation among unlocked stages */}
+      {/* STAGES */}
       {screen === 'STAGES' && (
         <div className="absolute inset-0 bg-black/95 p-4 overflow-y-auto">
           <div className="max-w-md mx-auto">
             <h2 className="text-amber-300 text-base mb-1">{theme.name}</h2>
             <p className="text-[9px] text-white/60 mb-3">
-              Stages {save.progress[theme.id] ?? 0} / {STAGES_PER_THEME} cleared · tap to play any unlocked stage
+              Stages {save.progress[theme.id] ?? 0} / {STAGES_PER_THEME} cleared · tap any unlocked stage
             </p>
             <div className="grid grid-cols-5 gap-2">
               {Array.from({ length: STAGES_PER_THEME }, (_, i) => i + 1).map((n) => {
@@ -394,7 +442,7 @@ const Index = () => {
         </div>
       )}
 
-      {/* GARAGE — with real pixel sprite previews */}
+      {/* GARAGE */}
       {screen === 'GARAGE' && (
         <div className="absolute inset-0 bg-black/95 p-4 overflow-y-auto">
           <div className="max-w-md mx-auto">
@@ -403,7 +451,7 @@ const Index = () => {
               <span className="text-[10px] text-amber-200">💰 {formatNum(save.coins)}</span>
             </div>
             <p className="text-[8px] text-white/50 mb-3">
-              {CARS.length} cars · preview = exactly what you'll drive
+              {CARS.length} cars · preview matches the car you'll drive in 3D
             </p>
             <div className="grid gap-2">
               {CARS.map((car) => {
