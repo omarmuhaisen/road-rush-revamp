@@ -10,9 +10,9 @@ export const ROAD_RIGHT = VIEW_W - 32; // px from left where road ends
 export const ROAD_WIDTH = ROAD_RIGHT - ROAD_LEFT;
 export const LANE_WIDTH = ROAD_WIDTH / LANE_COUNT;
 
-// player car logical size (pixels)
-export const CAR_W = 24;
-export const CAR_H = 36;
+// player car logical size (pixels) — smaller for cleaner top-down look
+export const CAR_W = 18;
+export const CAR_H = 28;
 
 export type CarConfig = {
   id: string;
@@ -26,75 +26,9 @@ export type CarConfig = {
   handling: number; // lane change snappiness (0..1)
 };
 
-// Brand-safe inspired names + premium pricing
-export const CARS: CarConfig[] = [
-  {
-    id: 'starter',
-    name: 'CITY HATCH',
-    inspiredBy: 'Starter ride',
-    price: 0,
-    body: '#3b82f6',
-    accent: '#1e3a8a',
-    window: '#0f172a',
-    speed: 90,
-    handling: 0.6,
-  },
-  {
-    id: 'm-class',
-    name: 'M-CLASS STAR',
-    inspiredBy: 'inspired by Mercedes',
-    price: 25000,
-    body: '#e5e7eb',
-    accent: '#9ca3af',
-    window: '#1f2937',
-    speed: 110,
-    handling: 0.7,
-  },
-  {
-    id: 'b-sport',
-    name: 'B-SPORT GT',
-    inspiredBy: 'inspired by BMW',
-    price: 75000,
-    body: '#1e293b',
-    accent: '#60a5fa',
-    window: '#0ea5e9',
-    speed: 130,
-    handling: 0.78,
-  },
-  {
-    id: 't-volt',
-    name: 'T-VOLT VIP',
-    inspiredBy: 'inspired by Tesla',
-    price: 200000,
-    body: '#dc2626',
-    accent: '#fbbf24',
-    window: '#7f1d1d',
-    speed: 150,
-    handling: 0.85,
-  },
-  {
-    id: 'lambo-x',
-    name: 'L-BULL X',
-    inspiredBy: 'inspired by Lamborghini',
-    price: 500000,
-    body: '#facc15',
-    accent: '#000000',
-    window: '#0f172a',
-    speed: 175,
-    handling: 0.92,
-  },
-  {
-    id: 'phantom',
-    name: 'R-PHANTOM',
-    inspiredBy: 'inspired by Rolls-Royce',
-    price: 1500000,
-    body: '#0f172a',
-    accent: '#fde68a',
-    window: '#312e81',
-    speed: 200,
-    handling: 0.95,
-  },
-];
+// 110 cars total — starter free, all others 11,000 coins
+import { CARS_GENERATED } from './cars';
+export const CARS: CarConfig[] = CARS_GENERATED;
 
 export type LevelTheme = {
   id: string;
