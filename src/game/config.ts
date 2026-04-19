@@ -119,11 +119,15 @@ export type Stage = {
 export const buildStage = (themeId: string, index: number): Stage => {
   // tier 0..3 by theme order so later themes start harder
   const themeTier = THEMES.findIndex((t) => t.id === themeId);
-  const baseGoal = 200 + index * 200; // 200..20200
-  const goal = Math.round(baseGoal * (1 + themeTier * 0.4));
-  const speedMul = 1 + (index - 1) * 0.012 + themeTier * 0.15; // up to ~2.6x
-  const obstacleRate = 0.9 + (index - 1) * 0.025 + themeTier * 0.3;
-  const coinRate = 1.4 + (index - 1) * 0.01;
+  // sharper difficulty curve: scoreGoal grows quadratically with index
+  const baseGoal = 250 + index * 250 + Math.pow(index, 1.4) * 6;
+  const goal = Math.round(baseGoal * (1 + themeTier * 0.5));
+  // speed scales steeper; capped via use site
+  const speedMul = 1 + (index - 1) * 0.022 + themeTier * 0.22; // up to ~3.3x
+  // obstacle rate ramps much faster per stage
+  const obstacleRate = 0.9 + (index - 1) * 0.045 + themeTier * 0.4;
+  // coin rate grows mildly so coins remain rewarding
+  const coinRate = 1.4 + (index - 1) * 0.014 + themeTier * 0.1;
   return { themeId, index, scoreGoal: goal, speedMul, obstacleRate, coinRate };
 };
 

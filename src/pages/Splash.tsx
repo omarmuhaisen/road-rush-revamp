@@ -9,7 +9,7 @@ export const Splash = ({ onDone }: Props) => {
 
   useEffect(() => {
     const start = performance.now();
-    const dur = 1800;
+    const dur = 1900;
     let raf = 0;
     const tick = (t: number) => {
       const p = Math.min(100, ((t - start) / dur) * 100);
@@ -23,46 +23,67 @@ export const Splash = ({ onDone }: Props) => {
 
   return (
     <div
-      className="absolute inset-0 bg-black flex flex-col items-center justify-center text-white p-6"
-      style={{ fontFamily: '"Press Start 2P", ui-monospace, monospace' }}
+      className="absolute inset-0 flex flex-col items-center justify-center text-white p-6 overflow-hidden"
+      style={{
+        fontFamily: '"Press Start 2P", ui-monospace, monospace',
+        background:
+          'radial-gradient(circle at 50% 0%, #312e81 0%, #0b0a23 55%, #000 100%)',
+      }}
     >
-      <div className="text-center mb-8">
+      {/* animated grid floor */}
+      <div
+        aria-hidden
+        className="absolute inset-x-0 bottom-0 h-1/2 opacity-40"
+        style={{
+          background:
+            'linear-gradient(transparent 0%, #ec4899 100%), repeating-linear-gradient(0deg, transparent 0 19px, rgba(236,72,153,0.5) 19px 20px), repeating-linear-gradient(90deg, transparent 0 19px, rgba(34,211,238,0.4) 19px 20px)',
+          backgroundBlendMode: 'multiply',
+          transform: 'perspective(400px) rotateX(60deg)',
+          transformOrigin: 'bottom',
+        }}
+      />
+
+      {/* sun glow */}
+      <div
+        aria-hidden
+        className="absolute top-[18%] w-72 h-72 rounded-full blur-3xl"
+        style={{ background: 'radial-gradient(circle, #f97316 0%, transparent 70%)', opacity: 0.6 }}
+      />
+
+      <div className="relative z-10 text-center mb-6">
         <h1
-          className="text-4xl text-amber-300 leading-tight"
-          style={{ textShadow: '4px 4px 0 #7c2d12, 8px 8px 0 #000' }}
+          className="text-5xl leading-tight tracking-tight"
+          style={{
+            background: 'linear-gradient(180deg, #fde047 0%, #f97316 70%, #dc2626 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            textShadow: '0 0 30px rgba(251, 146, 60, 0.5)',
+            filter: 'drop-shadow(4px 4px 0 #000)',
+          }}
         >
           TURBO
           <br />
           DASH
         </h1>
-        <p className="mt-3 text-[10px] text-fuchsia-400 tracking-widest">PIXEL EDITION</p>
+        <p className="mt-3 text-[10px] tracking-[0.4em] text-cyan-300">3D · EDITION</p>
       </div>
 
-      {/* big pixel car */}
-      <div className="mb-8" style={{ imageRendering: 'pixelated' }}>
-        <svg width={96} height={144} viewBox="0 0 24 36" shapeRendering="crispEdges">
-          <rect x={2} y={2} width={20} height={32} fill="#3b82f6" />
-          <rect x={2} y={16} width={20} height={2} fill="#1e3a8a" />
-          <rect x={10} y={2} width={4} height={32} fill="#1e3a8a" />
-          <rect x={4} y={5} width={16} height={8} fill="#0f172a" />
-          <rect x={4} y={22} width={16} height={6} fill="#0f172a" />
-          <rect x={0} y={4} width={3} height={6} fill="#0a0a0a" />
-          <rect x={21} y={4} width={3} height={6} fill="#0a0a0a" />
-          <rect x={0} y={24} width={3} height={6} fill="#0a0a0a" />
-          <rect x={21} y={24} width={3} height={6} fill="#0a0a0a" />
-          <rect x={3} y={0} width={3} height={2} fill="#fef9c3" />
-          <rect x={18} y={0} width={3} height={2} fill="#fef9c3" />
-        </svg>
-      </div>
+      {/* spinning wheel icon */}
+      <div className="relative z-10 mb-8 w-16 h-16 rounded-full border-4 border-amber-300 border-t-transparent animate-spin" />
 
-      {/* progress bar */}
-      <div className="w-64 h-4 border-4 border-white bg-black">
+      <div className="relative z-10 w-64 h-3 border-2 border-white/40 bg-black/60 rounded-full overflow-hidden">
         <div
-          className="h-full bg-gradient-to-r from-emerald-400 via-amber-300 to-fuchsia-500"
-          style={{ width: `${pct}%` }}
+          className="h-full transition-[width] duration-100"
+          style={{
+            width: `${pct}%`,
+            background: 'linear-gradient(90deg, #22d3ee 0%, #fde047 50%, #ec4899 100%)',
+            boxShadow: '0 0 12px rgba(236,72,153,0.8)',
+          }}
         />
       </div>
-      <p className="mt-3 text-[10px] text-white/60">LOADING {Math.floor(pct)}%</p>
+      <p className="relative z-10 mt-3 text-[10px] text-white/60 tracking-widest">
+        LOADING {Math.floor(pct)}%
+      </p>
     </div>
   );
 };
