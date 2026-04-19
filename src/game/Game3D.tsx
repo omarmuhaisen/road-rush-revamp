@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { CarConfig, Stage, CAR_W, CAR_H } from './config';
+import { CarConfig, Stage } from './config';
 import { getTheme3D, Theme3D } from './themes3d';
 import { PlayerCar3D } from './PlayerCar3D';
 import { Obstacle3D } from './Obstacle3D';
@@ -12,7 +12,6 @@ const ROAD_WIDTH = 8;
 const LANES = 5;
 const LANE_W = ROAD_WIDTH / LANES;
 const HALF_ROAD = ROAD_WIDTH / 2;
-const VIEW_AHEAD = 70; // how far ahead we render the world
 const SPAWN_Z = -55;
 const DESPAWN_Z = 12;
 const COIN_SIZE = 0.35;
