@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { isNative, showRewardedAd } from '@/services/admob';
 
 interface AdModalProps {
   open: boolean;
@@ -11,7 +12,9 @@ interface AdModalProps {
   durationSec?: number;
 }
 
-// Fake/simulated rewarded ad. NOT a real ad SDK.
+// Rewarded ad modal.
+// - On native (Capacitor) it triggers a real AdMob rewarded ad.
+// - On web preview it shows a simulated ad with a countdown.
 export const AdModal = ({
   open,
   title,
@@ -23,18 +26,32 @@ export const AdModal = ({
   durationSec = 5,
 }: AdModalProps) => {
   const [seconds, setSeconds] = useState(durationSec);
+  const nativeTriggered = useRef(false);
 
   useEffect(() => {
     if (!open) {
       setSeconds(durationSec);
+      nativeTriggered.current = false;
       return;
     }
+
+    // Native path: ask AdMob immediately and resolve via callback
+    if (isNative() && !nativeTriggered.current) {
+      nativeTriggered.current = true;
+      showRewardedAd().then((rewarded) => {
+        if (rewarded) onComplete();
+        else onSkip?.();
+      });
+      return;
+    }
+
+    // Web fallback: countdown + manual claim
     setSeconds(durationSec);
     const id = setInterval(() => {
       setSeconds((s) => Math.max(0, s - 1));
     }, 1000);
     return () => clearInterval(id);
-  }, [open, durationSec]);
+  }, [open, durationSec, onComplete, onSkip]);
 
   if (!open) return null;
 
