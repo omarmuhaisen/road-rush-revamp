@@ -1,93 +1,92 @@
-import { Capacitor } from '@capacitor/core';
-import {
-  AdMob,
-  RewardAdPluginEvents,
-  AdMobRewardItem,
-  RewardAdOptions,
-} from '@capacitor-community/admob';
+/**
+ * AdMob integration via AppCreator24 WebView bridge.
+ *
+ * AppCreator24 injects an `Android` JavaScript interface into the WebView.
+ * We call `Android.showRewardedAd()` to request a rewarded ad, and
+ * the native side calls back `window.onRewardedAdCompleted()` or
+ * `window.onRewardedAdFailed()` when done.
+ *
+ * On plain web (no Android bridge) we simulate the reward so the
+ * browser preview keeps working.
+ */
 
-// AdMob IDs (provided by user)
 export const ADMOB_APP_ID = 'ca-app-pub-8464065147087356~1130729395';
 export const REWARDED_AD_UNIT_ID = 'ca-app-pub-8464065147087356/9539702458';
 
-// Google's official test IDs (used in dev / browser preview)
-const TEST_REWARDED_ID = 'ca-app-pub-3940256099942544/5224354917';
-
-let initialized = false;
-
-export const isNative = () => Capacitor.isNativePlatform();
-
-export const initAdMob = async (): Promise<void> => {
-  if (!isNative() || initialized) return;
-  try {
-    await AdMob.initialize({
-      initializeForTesting: false,
-    });
-    initialized = true;
-    // eslint-disable-next-line no-console
-    console.log('[AdMob] initialized');
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.warn('[AdMob] init failed', e);
+declare global {
+  interface Window {
+    /** Injected by AppCreator24 native wrapper */
+    Android?: {
+      showRewardedAd?: () => void;
+      showInterstitialAd?: () => void;
+    };
+    /** Callbacks set by our code, invoked by the native side */
+    onRewardedAdCompleted?: () => void;
+    onRewardedAdFailed?: () => void;
   }
-};
+}
+
+/** Returns true when running inside an AppCreator24 WebView with the bridge available */
+export const isNative = (): boolean =>
+  typeof window.Android?.showRewardedAd === 'function';
+
+/** No-op kept for compatibility */
+export const initAdMob = async (): Promise<void> => {};
 
 /**
- * Show a rewarded ad. Resolves true if the user earned the reward.
- * On web/preview it falls back to a simulated reward (resolves true).
+ * Show a rewarded ad.
+ * - Inside AppCreator24 WebView → triggers real AdMob rewarded ad.
+ * - On web → simulates a reward after 50 ms.
  */
-export const showRewardedAd = async (): Promise<boolean> => {
+export const showRewardedAd = (): Promise<boolean> => {
+  // Web fallback
   if (!isNative()) {
-    // Web fallback — simulate reward so the in-browser preview keeps working
     return new Promise((resolve) => setTimeout(() => resolve(true), 50));
   }
 
-  await initAdMob();
+  return new Promise<boolean>((resolve) => {
+    // Set up callbacks the native side will invoke
+    window.onRewardedAdCompleted = () => {
+      cleanup();
+      resolve(true);
+    };
 
-  return new Promise<boolean>(async (resolve) => {
-    let rewarded = false;
+    window.onRewardedAdFailed = () => {
+      cleanup();
+      resolve(false);
+    };
 
-    const rewardListener = await AdMob.addListener(
-      RewardAdPluginEvents.Rewarded,
-      (_reward: AdMobRewardItem) => {
-        rewarded = true;
-      }
-    );
+    const cleanup = () => {
+      delete window.onRewardedAdCompleted;
+      delete window.onRewardedAdFailed;
+    };
 
-    const dismissListener = await AdMob.addListener(
-      RewardAdPluginEvents.Dismissed,
-      () => {
-        rewardListener.remove();
-        dismissListener.remove();
-        failListener.remove();
-        resolve(rewarded);
-      }
-    );
+    // Safety timeout — if native never calls back within 60 s, resolve false
+    const timer = setTimeout(() => {
+      cleanup();
+      resolve(false);
+    }, 60_000);
 
-    const failListener = await AdMob.addListener(
-      RewardAdPluginEvents.FailedToLoad,
-      () => {
-        rewardListener.remove();
-        dismissListener.remove();
-        failListener.remove();
-        resolve(false);
-      }
-    );
+    const originalCleanup = cleanup;
+    const cleanupWithTimer = () => {
+      clearTimeout(timer);
+      originalCleanup();
+    };
+
+    window.onRewardedAdCompleted = () => {
+      cleanupWithTimer();
+      resolve(true);
+    };
+    window.onRewardedAdFailed = () => {
+      cleanupWithTimer();
+      resolve(false);
+    };
 
     try {
-      const options: RewardAdOptions = {
-        adId: REWARDED_AD_UNIT_ID,
-        // Use Google test ID automatically if running a debug build
-        isTesting: false,
-      };
-      await AdMob.prepareRewardVideoAd(options);
-      await AdMob.showRewardVideoAd();
+      window.Android!.showRewardedAd!();
     } catch (e) {
-      // eslint-disable-next-line no-console
-      console.warn('[AdMob] rewarded ad failed', e);
-      rewardListener.remove();
-      dismissListener.remove();
-      failListener.remove();
+      console.warn('[AdMob] bridge call failed', e);
+      cleanupWithTimer();
       resolve(false);
     }
   });
