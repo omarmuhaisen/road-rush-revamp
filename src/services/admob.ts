@@ -26,16 +26,18 @@ declare global {
   }
 }
 
-/** Returns true when running inside an AppCreator24 WebView with the bridge available */
+/** Returns true when running inside an AppCreator24 WebView */
 export const isNative = (): boolean =>
-  typeof window.Android?.showRewardedAd === 'function';
+  typeof window.Android?.showRewardedAd === 'function' ||
+  /Android|webview/i.test(navigator.userAgent);
 
 /** No-op kept for compatibility */
 export const initAdMob = async (): Promise<void> => {};
 
 /**
  * Show a rewarded ad.
- * - Inside AppCreator24 WebView → triggers real AdMob rewarded ad.
+ * - Inside AppCreator24 WebView → navigates to appcreator24://ad_rewarded
+ *   and waits for the native callback.
  * - On web → simulates a reward after 50 ms.
  */
 export const showRewardedAd = (): Promise<boolean> => {
@@ -45,48 +47,24 @@ export const showRewardedAd = (): Promise<boolean> => {
   }
 
   return new Promise<boolean>((resolve) => {
-    // Set up callbacks the native side will invoke
-    window.onRewardedAdCompleted = () => {
-      cleanup();
-      resolve(true);
-    };
-
-    window.onRewardedAdFailed = () => {
-      cleanup();
-      resolve(false);
-    };
-
     const cleanup = () => {
       delete window.onRewardedAdCompleted;
       delete window.onRewardedAdFailed;
-    };
-
-    // Safety timeout — if native never calls back within 60 s, resolve false
-    const timer = setTimeout(() => {
-      cleanup();
-      resolve(false);
-    }, 60_000);
-
-    const originalCleanup = cleanup;
-    const cleanupWithTimer = () => {
       clearTimeout(timer);
-      originalCleanup();
     };
 
-    window.onRewardedAdCompleted = () => {
-      cleanupWithTimer();
-      resolve(true);
-    };
-    window.onRewardedAdFailed = () => {
-      cleanupWithTimer();
-      resolve(false);
-    };
+    window.onRewardedAdCompleted = () => { cleanup(); resolve(true); };
+    window.onRewardedAdFailed = () => { cleanup(); resolve(false); };
+
+    // Safety timeout
+    const timer = setTimeout(() => { cleanup(); resolve(false); }, 60_000);
 
     try {
-      window.Android!.showRewardedAd!();
+      // AppCreator24 URL-scheme trigger for rewarded ads
+      window.location.href = 'appcreator24://ad_rewarded';
     } catch (e) {
       console.warn('[AdMob] bridge call failed', e);
-      cleanupWithTimer();
+      cleanup();
       resolve(false);
     }
   });
