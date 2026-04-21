@@ -352,7 +352,22 @@ const Index = () => {
             </button>
           </div>
 
-          <div className="relative mt-6 flex gap-4 text-[11px]">
+          {/* Manual test claim button */}
+          <button
+            onClick={() => {
+              const bonus = 500;
+              setSave((s) => {
+                const updated = { ...s, coins: s.coins + bonus };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+                return updated;
+              });
+            }}
+            className="relative mt-4 w-64 bg-gradient-to-b from-lime-400 to-lime-600 text-black border-4 border-black px-4 py-3 text-[11px] font-black active:translate-y-[2px] shadow-[0_4px_0_#000] animate-pulse"
+          >
+            🎁 CLAIM 500 COINS (TEST)
+          </button>
+
+          <div className="relative mt-4 flex gap-4 text-[11px]">
             <span className="text-amber-300">💰 {formatNum(save.coins)}</span>
             <span className="text-cyan-300">★ {formatNum(save.highScore)}</span>
           </div>
@@ -625,7 +640,11 @@ const Index = () => {
             setAdMode(null);
             setTimeout(goNextStage, 80);
           } else if (adMode === 'SHOP_PACK') {
-            setSave((s) => ({ ...s, coins: s.coins + adReward }));
+            setSave((s) => {
+              const updated = { ...s, coins: s.coins + adReward };
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+              return updated;
+            });
             setAdMode(null);
           }
         }}
