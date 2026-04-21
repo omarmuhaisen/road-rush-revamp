@@ -1,13 +1,11 @@
 /**
  * AdMob integration via AppCreator24 WebView bridge.
  *
- * AppCreator24 injects an `Android` JavaScript interface into the WebView.
- * We call `Android.showRewardedAd()` to request a rewarded ad, and
- * the native side calls back `window.onRewardedAdCompleted()` or
- * `window.onRewardedAdFailed()` when done.
+ * Triggers rewarded ads using: appcreator24://ad_rewarded
+ * The native container intercepts this URL scheme and shows an AdMob rewarded video.
  *
- * On plain web (no Android bridge) we simulate the reward so the
- * browser preview keeps working.
+ * On plain web (no native container) we simulate the reward after 30 seconds
+ * so the shop/reward flow can be tested in-browser.
  */
 
 export const ADMOB_APP_ID = 'ca-app-pub-8464065147087356~1130729395';
@@ -36,16 +34,11 @@ export const initAdMob = async (): Promise<void> => {};
 
 /**
  * Show a rewarded ad.
- * - Inside AppCreator24 WebView → navigates to appcreator24://ad_rewarded
- *   and waits for the native callback.
- * - On web → simulates a reward after 50 ms.
+ * - Always triggers `appcreator24://ad_rewarded` URL scheme first.
+ * - Sets up native callbacks for when the ad completes/fails.
+ * - On web (non-native) simulates a successful reward after 30 seconds.
  */
 export const showRewardedAd = (): Promise<boolean> => {
-  // Web fallback
-  if (!isNative()) {
-    return new Promise((resolve) => setTimeout(() => resolve(true), 50));
-  }
-
   return new Promise<boolean>((resolve) => {
     const cleanup = () => {
       delete window.onRewardedAdCompleted;
@@ -56,16 +49,23 @@ export const showRewardedAd = (): Promise<boolean> => {
     window.onRewardedAdCompleted = () => { cleanup(); resolve(true); };
     window.onRewardedAdFailed = () => { cleanup(); resolve(false); };
 
-    // Safety timeout
-    const timer = setTimeout(() => { cleanup(); resolve(false); }, 60_000);
+    // Safety timeout — 90s max wait
+    const timer = setTimeout(() => { cleanup(); resolve(false); }, 90_000);
 
+    // Always fire the URL scheme so AppCreator24 can intercept it
     try {
-      // AppCreator24 URL-scheme trigger for rewarded ads
       window.location.href = 'appcreator24://ad_rewarded';
     } catch (e) {
-      console.warn('[AdMob] bridge call failed', e);
-      cleanup();
-      resolve(false);
+      console.warn('[AdMob] URL scheme trigger failed', e);
+    }
+
+    // Web fallback: if no native callback fires, simulate reward after 30s
+    if (!isNative()) {
+      setTimeout(() => {
+        // Only resolve if not already resolved by native callbacks
+        cleanup();
+        resolve(true);
+      }, 30_000);
     }
   });
 };
