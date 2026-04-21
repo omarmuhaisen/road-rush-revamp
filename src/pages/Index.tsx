@@ -640,7 +640,11 @@ const Index = () => {
             setAdMode(null);
             setTimeout(goNextStage, 80);
           } else if (adMode === 'SHOP_PACK') {
-            setSave((s) => ({ ...s, coins: s.coins + adReward }));
+            setSave((s) => {
+              const updated = { ...s, coins: s.coins + adReward };
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+              return updated;
+            });
             setAdMode(null);
           }
         }}
