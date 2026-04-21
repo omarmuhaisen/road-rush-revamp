@@ -1,4 +1,5 @@
-import { SaveData } from '@/game/config';
+import { useState } from 'react';
+import { SaveData, STORAGE_KEY } from '@/game/config';
 
 interface Pack {
   id: string;
@@ -23,7 +24,46 @@ interface Props {
 
 const formatNum = (n: number) => n.toLocaleString('en-US');
 
+const AD_DELAY_MS = 30_000;
+
 export const Shop = ({ save, onWatchAd, onBack }: Props) => {
+  const [pending, setPending] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState(0);
+
+  const handleWatch = (pack: Pack) => {
+    if (pending) return;
+
+    // 1. Trigger AppCreator24 rewarded ad via URL scheme
+    try {
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = 'appcreator24://ad_rewarded';
+      document.body.appendChild(iframe);
+      setTimeout(() => iframe.remove(), 500);
+    } catch (_) {}
+
+    // 2. Start countdown and grant reward after delay
+    setPending(pack.id);
+    setCountdown(Math.ceil(AD_DELAY_MS / 1000));
+
+    const interval = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+
+    setTimeout(() => {
+      clearInterval(interval);
+      setPending(null);
+      setCountdown(0);
+      onWatchAd(pack.coins);
+    }, AD_DELAY_MS);
+  };
+
   return (
     <div
       className="absolute inset-0 bg-black/95 p-4 overflow-y-auto"
@@ -52,16 +92,17 @@ export const Shop = ({ save, onWatchAd, onBack }: Props) => {
                 {p.badge && <p className="text-[8px] mt-1 bg-black/30 inline-block px-1">{p.badge}</p>}
               </div>
               <button
-                onClick={() => onWatchAd(p.coins)}
-                className="px-3 py-2 bg-black text-amber-300 border-2 border-white text-[9px] font-black active:translate-y-[2px]"
+                onClick={() => handleWatch(p)}
+                disabled={!!pending}
+                className="px-3 py-2 bg-black text-amber-300 border-2 border-white text-[9px] font-black active:translate-y-[2px] disabled:opacity-40"
               >
-                ▶ WATCH AD
+                {pending === p.id ? `⏳ ${countdown}s` : pending ? '⏳ WAIT' : '▶ WATCH AD'}
               </button>
             </div>
           ))}
         </div>
 
-        <button onClick={onBack} className="mt-4 text-[10px] text-white/70 underline">
+        <button onClick={onBack} disabled={!!pending} className="mt-4 text-[10px] text-white/70 underline disabled:opacity-40">
           ← BACK
         </button>
       </div>
