@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { SaveData, STORAGE_KEY } from '@/game/config';
+import { SaveData } from '@/game/config';
 
 interface Pack {
   id: string;
