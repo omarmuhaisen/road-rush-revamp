@@ -67,16 +67,15 @@ export const Shop = ({ save, onWatchAd, onBack }: Props) => {
               </div>
               <button
                 onClick={() => handleWatch(p)}
-                disabled={!!pending}
-                className="px-3 py-2 bg-black text-amber-300 border-2 border-white text-[9px] font-black active:translate-y-[2px] disabled:opacity-40"
+                className="px-3 py-2 bg-black text-amber-300 border-2 border-white text-[9px] font-black active:translate-y-[2px]"
               >
-                {pending === p.id ? `⏳ ${countdown}s` : pending ? '⏳ WAIT' : '▶ WATCH AD'}
+                ▶ WATCH AD
               </button>
             </div>
           ))}
         </div>
 
-        <button onClick={onBack} disabled={!!pending} className="mt-4 text-[10px] text-white/70 underline disabled:opacity-40">
+        <button onClick={onBack} className="mt-4 text-[10px] text-white/70 underline">
           ← BACK
         </button>
       </div>
