@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { SaveData } from '@/game/config';
 
 interface Pack {
@@ -24,16 +23,9 @@ interface Props {
 
 const formatNum = (n: number) => n.toLocaleString('en-US');
 
-const AD_DELAY_MS = 30_000;
-
 export const Shop = ({ save, onWatchAd, onBack }: Props) => {
-  const [pending, setPending] = useState<string | null>(null);
-  const [countdown, setCountdown] = useState(0);
-
   const handleWatch = (pack: Pack) => {
-    if (pending) return;
-
-    // 1. Trigger AppCreator24 rewarded ad via URL scheme
+    // Trigger AppCreator24 rewarded ad via URL scheme
     try {
       const iframe = document.createElement('iframe');
       iframe.style.display = 'none';
@@ -42,26 +34,8 @@ export const Shop = ({ save, onWatchAd, onBack }: Props) => {
       setTimeout(() => iframe.remove(), 500);
     } catch (_) {}
 
-    // 2. Start countdown and grant reward after delay
-    setPending(pack.id);
-    setCountdown(Math.ceil(AD_DELAY_MS / 1000));
-
-    const interval = setInterval(() => {
-      setCountdown((c) => {
-        if (c <= 1) {
-          clearInterval(interval);
-          return 0;
-        }
-        return c - 1;
-      });
-    }, 1000);
-
-    setTimeout(() => {
-      clearInterval(interval);
-      setPending(null);
-      setCountdown(0);
-      onWatchAd(pack.coins);
-    }, AD_DELAY_MS);
+    // Grant reward immediately
+    onWatchAd(pack.coins);
   };
 
   return (
