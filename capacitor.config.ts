@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'app.lovable.f4526a3f3a71441ca7321328f51d06b1',
+  appId: 'com.abd.turbodash',
   appName: 'road-rush-revamp',
   webDir: 'dist',
   server: {
